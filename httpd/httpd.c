@@ -75,6 +75,7 @@ void set_signal_handler()
 
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = sigchld_handler;
+    sa.sa_flags = SA_RESTART;   // システムコールを再開させる
     sigaction(SIGCHLD, &sa, NULL);
 }
 
@@ -103,6 +104,9 @@ int main(int argc, char *argv[])
             model = MODEL_PREFORK;
             printf("model = prefork\n");
         }
+    } else {
+        model = MODEL_FORK;
+        printf("model = fork\n");
     }
 
     set_signal_handler();
@@ -143,13 +147,9 @@ int main(int argc, char *argv[])
         struct sockaddr_in peer_sin;
         len = sizeof(peer_sin);
         /* コネクション受け付け */
-        while (1) {
-            connected_socket = accept(listening_socket, (struct sockaddr *)&peer_sin, (socklen_t*)&len);
-            if (connected_socket == -1) {
-                if (errno != EINTR)
-                    err(1, "accept");
-            }
-            break;
+        connected_socket = accept(listening_socket, (struct sockaddr *)&peer_sin, (socklen_t*)&len);
+        if (connected_socket == -1) {
+            err(1, "accept");
         }
 
         /* 相手側のホスト・ポート情報を表示 */
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
                 }
                 break;
             default:
-                printf("invalid model: %d\n", model);
+                printf("Invalid model: %d\n", model);
                 exit(1);
         }
     }
