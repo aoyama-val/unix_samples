@@ -16,6 +16,7 @@
 
 #define MODEL_FORK      0
 #define MODEL_THREAD    1
+#define MODEL_SINGLE    2
 
 char *response = "";
 
@@ -94,6 +95,9 @@ int main(int argc, char *argv[])
         } else if (strcmp(argv[1], "thread") == 0) {
             model = MODEL_THREAD;
             printf("model = thread\n");
+        } else if (strcmp(argv[1], "single") == 0) {
+            model = MODEL_SINGLE;
+            printf("model = single\n");
         }
     }
 
@@ -172,6 +176,11 @@ int main(int argc, char *argv[])
                     if (pthread_create(&worker, NULL, thread_func, arg) != 0) {
                         err(1, "pthread_create");
                     }
+                }
+                break;
+            case MODEL_SINGLE:
+                {
+                    process_request(connected_socket);
                 }
                 break;
             default:
