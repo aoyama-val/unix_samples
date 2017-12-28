@@ -80,6 +80,31 @@ void set_signal_handler()
     sigaction(SIGCHLD, &sa, NULL);
 }
 
+// ソケットの相手の情報を表示する
+void get_peer_address(int sock, char buf[])
+{
+    socklen_t len;
+    struct sockaddr_storage addr;
+    char ipstr[INET6_ADDRSTRLEN];
+    int port;
+
+    len = sizeof(addr);
+    getpeername(sock, (struct sockaddr*)&addr, &len);
+
+    // deal with both IPv4 and IPv6:
+    if (addr.ss_family == AF_INET) {
+        struct sockaddr_in *s = (struct sockaddr_in *)&addr;
+        port = ntohs(s->sin_port);
+        inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof(ipstr));
+    } else { // AF_INET6
+        struct sockaddr_in6 *s = (struct sockaddr_in6 *)&addr;
+        port = ntohs(s->sin6_port);
+        inet_ntop(AF_INET6, &s->sin6_addr, ipstr, sizeof(ipstr));
+    }
+
+    sprintf(buf, "%s:%d", ipstr, port);
+}
+
 int main(int argc, char *argv[])
 {
     int connected_socket, listening_socket;
@@ -153,20 +178,9 @@ int main(int argc, char *argv[])
             err(1, "accept");
         }
 
-        /* 相手側のホスト・ポート情報を表示 */
-        struct hostent* peer_host = gethostbyaddr((char *)&peer_sin.sin_addr.s_addr,
-                                                  sizeof(peer_sin.sin_addr), AF_INET);
-        if (peer_host == NULL) {
-            printf("gethostbyname failed\n");
-            exit(1);
-        }
-
-        printf("接続: %s [%s] ポート %d\n",
-               peer_host->h_name,
-               inet_ntoa(peer_sin.sin_addr),
-               ntohs(peer_sin.sin_port)
-              );
-
+        //char peer_address[256];
+        //get_peer_address(connected_socket, peer_address);
+        //printf("接続: %s\n", peer_address);
 
         switch (model) {
             case MODEL_FORK:
