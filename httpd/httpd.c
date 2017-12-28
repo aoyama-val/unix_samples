@@ -14,10 +14,12 @@
 #include <pthread.h>
 #include <wait.h>
 
-#define MODEL_FORK      0
-#define MODEL_THREAD    1
-#define MODEL_SINGLE    2
-#define MODEL_PREFORK   3   // 今のところ、2プロセスだけの手抜き実装
+enum model {
+    MODEL_FORK    = 0,
+    MODEL_THREAD  = 1,
+    MODEL_SINGLE  = 2,
+    MODEL_PREFORK = 3,     // 今のところ、2プロセスだけの手抜き実装
+};
 
 char *response = "";
 
@@ -41,7 +43,6 @@ char* load_response(char* filename)
 
 void process_request(int connected_socket)
 {
-    int read_size;
     char buf[256];
 
     while (read(connected_socket, buf, sizeof(buf)) < 0)
@@ -86,7 +87,7 @@ int main(int argc, char *argv[])
     int len, ret;
     int sock_optval = 1;
     int port = 5000;
-    int model = MODEL_FORK;
+    enum model model = MODEL_FORK;
 
     pthread_t worker;
 
