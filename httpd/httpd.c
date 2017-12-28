@@ -17,6 +17,7 @@
 #define MODEL_FORK      0
 #define MODEL_THREAD    1
 #define MODEL_SINGLE    2
+#define MODEL_PREFORK   3   // 今のところ、2プロセスだけの手抜き実装
 
 char *response = "";
 
@@ -49,7 +50,7 @@ void process_request(int connected_socket)
     while (write(connected_socket, response, strlen(response)) < 0)
         ;
 
-    printf("接続が切れました。子プロセス %d を終了します。\n", (int)getpid());
+    printf("接続が切れました。pid = %d\n", (int)getpid());
     int ret = close(connected_socket);
     if (ret == -1) {
         err(1, "close");
@@ -98,6 +99,9 @@ int main(int argc, char *argv[])
         } else if (strcmp(argv[1], "single") == 0) {
             model = MODEL_SINGLE;
             printf("model = single\n");
+        } else if (strcmp(argv[1], "prefork") == 0) {
+            model = MODEL_PREFORK;
+            printf("model = prefork\n");
         }
     }
 
@@ -130,6 +134,10 @@ int main(int argc, char *argv[])
         err(1, "listen");
     }
     printf("ポート %d を見張ります。\n", port);
+
+    if (model == MODEL_PREFORK) {
+        fork();
+    }
 
     while (1) {
         struct sockaddr_in peer_sin;
@@ -179,12 +187,13 @@ int main(int argc, char *argv[])
                 }
                 break;
             case MODEL_SINGLE:
+            case MODEL_PREFORK:
                 {
                     process_request(connected_socket);
                 }
                 break;
             default:
-                printf("unknown model: %d\n", model);
+                printf("invalid model: %d\n", model);
                 exit(1);
         }
     }
