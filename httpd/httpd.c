@@ -67,7 +67,19 @@ void* thread_func(void* data)
 
 void sigchld_handler()
 {
-    wait(NULL);
+    // SIGCHLDハンドラ実行中にSIGCHLDが複数回生成された場合、
+    // 1個のみが配送される。そのため、ループを回して終了している子プロセスを
+    // 全部waitする必要がある。そうしないとゾンビが出来てしまう。
+    //
+    // 単に子プロセスをwaitするだけなら、SIG_IGNをセットすれば自動的にやってくれるのでもっと楽。
+    while (1) {
+        int status;
+        // WNOHANGにより、終了している子プロセスが無い場合はブロックせずにすぐに戻り、戻り値は0になる。
+        pid_t pid = waitpid(-1, &status, WNOHANG);
+        if (pid <= 0) {
+            break;
+        }
+    }
 }
 
 void set_signal_handler()
@@ -76,7 +88,7 @@ void set_signal_handler()
 
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = sigchld_handler;
-    sa.sa_flags = SA_RESTART;   // システムコールを再開させる
+    sa.sa_flags = SA_RESTART;   // システムコールを再開させる。これをつけないとacceptが中断されてしまってすごく遅かった。
     sigaction(SIGCHLD, &sa, NULL);
 }
 
@@ -216,6 +228,8 @@ int main(int argc, char *argv[])
     if (ret == -1) {
         err(1, "close");
     }
+
+    sleep(10);
 
     return 0;
 }
