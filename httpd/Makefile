@@ -1,7 +1,7 @@
 BIN		= a.out
 CC		= gcc
 CFLAGS	= -g3 -O2 -W -Wall -Wno-unused-parameter
-LDFLAGS	= -lpthread
+LDFLAGS	= -pthread
 
 
 
