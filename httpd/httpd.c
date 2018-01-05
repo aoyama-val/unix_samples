@@ -12,7 +12,7 @@
 #include <err.h>
 #include <errno.h>
 #include <pthread.h>
-#include <wait.h>
+#include <sys/wait.h>
 
 enum model {
     MODEL_FORK    = 0,
