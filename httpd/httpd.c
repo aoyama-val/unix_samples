@@ -188,23 +188,6 @@ int main(int argc, char *argv[])
         printf("model = fork\n");
     }
 
-    // forkの前に大量メモリ確保すると遅くなることの確認用
-    if (argc > 2) {
-        int len = atoi(argv[2]);
-        int bytes = sizeof(int) * len;
-        int *large = malloc(bytes);
-        if (large == NULL) {
-            err(1, "malloc");
-        }
-        printf("malloc %d bytes\n", bytes);
-
-        // mallocしただけではカーネルは実際にメモリを確保しないかもしれないので、アクセスしておく
-        srand(time(NULL));
-        for (int i = 0; i < len; i++) {
-            large[i] = rand();
-        }
-    }
-
     set_signal_handler();
 
     /* リスニングソケットを作成 */
