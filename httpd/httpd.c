@@ -1,18 +1,20 @@
+#include <sys/param.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/uio.h>
 #include <unistd.h>
-#include <sys/param.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <err.h>
 #include <errno.h>
 #include <pthread.h>
-#include <sys/wait.h>
 
 enum model {
     MODEL_FORK    = 0,
@@ -21,41 +23,78 @@ enum model {
     MODEL_PREFORK = 3,     // 今のところ、2プロセスだけの手抜き実装
 };
 
-char *response = "";
-
 struct thread_arg {
     int connected_socket;
     int listening_socket;
 };
 
-char* load_response(char* filename)
+void parse_request_line(char* line, char* method, char* path, char* version)
 {
-    char* ret = malloc(1024 * 10);
-    FILE* fp = fopen(filename, "r");
-    if (fp == NULL) {
-        err(1, "fopen");
-    }
-    int nread = fread(ret, 1, 1024 * 10, fp);
-    printf("loaded %d bytes\n", nread);
-    ret[nread] = '\0';
-    return ret;
+    sscanf(line, "%s %s %s", method, path, version);
 }
 
-void process_request(int connected_socket)
+char* load_response(char* request_path)
 {
-    char buf[256];
+    struct stat sb;
+    char path[256] = ".";
 
-    while (read(connected_socket, buf, sizeof(buf)) < 0)
-        ;
+    strncat(path, request_path, sizeof(path) - 1);
 
-    while (write(connected_socket, response, strlen(response)) < 0)
-        ;
-
-    printf("接続が切れました。pid = %d\n", (int)getpid());
-    int ret = close(connected_socket);
-    if (ret == -1) {
-        err(1, "close");
+    if (stat(path, &sb) != 0 || !(sb.st_mode & S_IFREG)) {
+        return NULL;
     }
+    FILE* fp = fopen(path, "r");
+    if (fp == NULL)
+        return NULL;
+    char* content = malloc(sb.st_size);
+    fread(content, 1, sb.st_size, fp);
+    fclose(fp);
+    return content;
+}
+
+int process_request(int connected_socket)
+{
+    char buf[4096];
+    char method[16];
+    char path[256];
+    char version[16];
+
+    FILE* fp = fdopen(connected_socket, "r+b");
+    if (fp == NULL) {
+        perror("fdopen");
+        exit(1);
+    }
+
+    setvbuf(fp, NULL, _IONBF, 0);
+
+    int lnum = 0;
+    while (fgets(buf, sizeof(buf), fp)) {
+        lnum++;
+        if (lnum == 1) {
+            parse_request_line(buf, method, path, version);
+            printf("method = [%s]  path = [%s]  version = [%s]\n", method, path, version);
+        }
+        if (strcmp(buf, "\r\n"))
+            break;
+    }
+
+    char* res = load_response(path);
+    if (res == NULL) {
+        char* not_found = "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\n\nNot Found";
+        fwrite(not_found, 1, strlen(not_found), fp);
+
+    } else {
+        char header[1024];
+        int len = strlen(res);
+        sprintf(header, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n", len);
+        fwrite(header, 1, strlen(header), fp);
+        fwrite(res, 1, len, fp);
+        free(res);
+    }
+
+    fclose(fp);
+
+    return 0;
 }
 
 void* thread_func(void* data)
@@ -149,26 +188,7 @@ int main(int argc, char *argv[])
         printf("model = fork\n");
     }
 
-    // forkの前に大量メモリ確保すると遅くなることの確認用
-    if (argc > 2) {
-        int len = atoi(argv[2]);
-        int bytes = sizeof(int) * len;
-        int *large = malloc(bytes);
-        if (large == NULL) {
-            err(1, "malloc");
-        }
-        printf("malloc %d bytes\n", bytes);
-
-        // mallocしただけではカーネルは実際にメモリを確保しないかもしれないので、アクセスしておく
-        srand(time(NULL));
-        for (int i = 0; i < len; i++) {
-            large[i] = rand();
-        }
-    }
-
     set_signal_handler();
-
-    response = load_response("response.txt");
 
     /* リスニングソケットを作成 */
     listening_socket = socket(AF_INET, SOCK_STREAM, 0);

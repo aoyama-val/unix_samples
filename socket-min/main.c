@@ -4,6 +4,7 @@
 //=============================================================================
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -26,10 +27,15 @@ int main(int argc, char *argv[])
 
     listen(sock, 5);
 
-    accepted = accept(sock, NULL, NULL);
+    while (1) {
+        accepted = accept(sock, NULL, NULL);
 
-    while ((nread = read(accepted, buf, sizeof(buf)))) {
-        write(accepted, buf, nread);
+        while ((nread = read(accepted, buf, sizeof(buf)))) {
+            for (int i = 0; i < nread; i++)
+                buf[i] = toupper(buf[i]);
+            write(accepted, buf, nread);
+        }
+        close(accepted);
     }
 
     return 0;
