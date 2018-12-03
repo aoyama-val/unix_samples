@@ -9,7 +9,8 @@
 
 int a = 0;
 
-void *thread_func(void *data) {
+void *thread_func(void *data)
+{
     printf("thread start. data = %d\n", *(int*)data);
 
     // 自身のスレッドIDを取得
